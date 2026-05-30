@@ -27,8 +27,19 @@ app.get('/', (req, res) => {
     });
 });
 
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        mongo: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    });
+});
+
 app.use('/api/products', productsRouter);
 app.use('/api/imports', importsRouter);
+
+app.use((req, res) => {
+    res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
+});
 
 app.use((err, req, res, next) => {
     // eslint-disable-line no-unused-vars
@@ -42,13 +53,17 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/import
 async function start() {
     try {
         await mongoose.connect(MONGODB_URI);
-        console.log('[mongo] connected:', MONGODB_URI);
-        await seedIfEmpty();
+        console.log('[mongo] connected');
+        try {
+            await seedIfEmpty();
+        } catch (e) {
+            console.warn('[seed] skipped:', e.message);
+        }
     } catch (err) {
         console.warn('[mongo] connection failed:', err.message);
         console.warn('[mongo] API will respond but DB-backed routes will fail until Mongo is available.');
     }
-    app.listen(PORT, () => console.log(`[server] listening on http://localhost:${PORT}`));
+    app.listen(PORT, '0.0.0.0', () => console.log(`[server] listening on port ${PORT}`));
 }
 
 start();
